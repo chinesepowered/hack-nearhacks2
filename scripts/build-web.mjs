@@ -1,14 +1,16 @@
 // Builds the whole page into one self-contained file: dist/index.html
 // (JS bundled by esbuild, CSS and fonts inlined, deployment details embedded).
 //
-//   node scripts/build-web.mjs --name arf-pup
+//   node scripts/build-web.mjs --name arf-pup [--out docs/index.html]
 import { build } from 'esbuild';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { ROOT, readJson } from './lib/testnet.mjs';
 
 const i = process.argv.indexOf('--name');
 const name = i > 0 ? process.argv[i + 1] : 'arf-pup';
+const o = process.argv.indexOf('--out');
+const outFile = join(ROOT, o > 0 ? process.argv[o + 1] : 'dist/index.html');
 const d = readJson(join(ROOT, 'deployments', name + '.json'));
 if (!d) throw new Error(`no deployments/${name}.json; run scripts/deploy.mjs first`);
 
@@ -43,6 +45,6 @@ const html = readFileSync(join(ROOT, 'web/index.html'), 'utf8')
   .replace('/*__CSS__*/', () => css)
   .replace('/*__CONFIG__*/null', () => JSON.stringify(config))
   .replace('/*__JS__*/', () => js.replace(/<\/script/gi, '<\\/script'));
-mkdirSync(join(ROOT, 'dist'), { recursive: true });
-writeFileSync(join(ROOT, 'dist/index.html'), html);
-console.log(`dist/index.html for ${d.contract}: ${(html.length / 1024).toFixed(0)} KB`);
+mkdirSync(dirname(outFile), { recursive: true });
+writeFileSync(outFile, html);
+console.log(`${outFile.slice(ROOT.length + 1)} for ${d.contract}: ${(html.length / 1024).toFixed(0)} KB`);

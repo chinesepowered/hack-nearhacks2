@@ -78,6 +78,19 @@ const STAGE = ['newborn', 'weaner', 'juvenile', 'grown seal'];
 const txLink = (hash) => `${D.explorer}/txns/${hash}`;
 const acctLink = (id) => `${D.explorer}/address/${id}`;
 
+/**
+ * Sets innerHTML only when it actually changed. The page re-renders several times a second;
+ * replacing a button's content between mousedown and mouseup would swallow the click.
+ * Returns true if the DOM was touched (so handlers need re-binding).
+ */
+const lastHtml = new WeakMap();
+function setHTML(el, html) {
+  if (lastHtml.get(el) === html) return false;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+  return true;
+}
+
 function toast(text, err = false) {
   const el = document.createElement('div');
   el.className = 'toast' + (err ? ' err' : '');
@@ -417,15 +430,14 @@ async function poll(force = false) {
 function renderAccount() {
   const el = $('account');
   if (!S.me) {
-    el.innerHTML = `<button class="btn ghost" id="guestBtn">${S.busy.has('guest') ? '<span class="spin"></span> Creating…' : 'Play as guest'}</button>`;
-    $('guestBtn').onclick = () => run('guest', ensureGuest);
+    if (setHTML(el, `<button class="btn ghost" id="guestBtn">${S.busy.has('guest') ? '<span class="spin"></span> Creating…' : 'Play as guest'}</button>`)) $('guestBtn').onclick = () => run('guest', ensureGuest);
     $('guestBtn').disabled = S.busy.has('guest');
     return;
   }
   const mine = S.dash?.me;
-  el.innerHTML = `<div class="chip" title="${esc(S.me.id)}"><span class="avatar">${esc(nick(S.me.id)[0])}</span><span>${esc(nick(S.me.id))}</span>
+  setHTML(el, `<div class="chip" title="${esc(S.me.id)}"><span class="avatar">${esc(nick(S.me.id)[0])}</span><span>${esc(nick(S.me.id))}</span>
     <span class="bal near"><b>${S.near == null ? '…' : nearAmt(S.near)}</b> NEAR</span>
-    <span class="bal"><b>${mine ? compact(mine.arf) : '0'}</b> ARF</span></div>`;
+    <span class="bal"><b>${mine ? compact(mine.arf) : '0'}</b> ARF</span></div>`);
 }
 
 function paintPup() {
@@ -545,30 +557,33 @@ function renderActions() {
   const fb = $('feedBtn');
   const feeding = S.busy.has('feed');
   fb.disabled = feeding || (l.present && !l.canFeed);
-  fb.innerHTML = feeding ? '<span class="spin"></span> Tossing…' : `<span style="width:44px;display:inline-flex">${ICON.fish}</span><span>${l.present ? 'Give a fish' : 'Call a pup with a fish'}<span class="sub">${nearAmt(c.fish_price)} NEAR</span></span>`;
-  $('feedEarn').innerHTML = !l.present
-    ? `You would earn about <b>${compact(s.feed_reward)} ARF</b>`
-    : l.canFeed
-      ? `Right now a fish earns <b>${Math.round(l.feedReward).toLocaleString('en-US')} ARF</b>`
-      : 'He is full. Come back when he is hungry.';
+  setHTML(fb, feeding ? '<span class="spin"></span> Tossing…' : `<span style="width:44px;display:inline-flex">${ICON.fish}</span><span>${l.present ? 'Give a fish' : 'Call a pup with a fish'}<span class="sub">${nearAmt(c.fish_price)} NEAR</span></span>`);
+  setHTML(
+    $('feedEarn'),
+    !l.present
+      ? `You would earn about <b>${compact(s.feed_reward)} ARF</b>`
+      : l.canFeed
+        ? `Right now a fish earns <b>${Math.round(l.feedReward).toLocaleString('en-US')} ARF</b>`
+        : 'He is full. Come back when he is hungry.',
+  );
   $('themeChip').textContent = `Today's theme: ${s.theme}`;
   const jb = $('jokeBtn');
   jb.disabled = S.busy.has('joke') || !!S.watching;
-  jb.innerHTML = S.busy.has('joke') ? '<span class="spin"></span> Sending…' : `Tell joke<span class="sub">${nearAmt(c.joke_fee)} NEAR</span>`;
+  setHTML(jb, S.busy.has('joke') ? '<span class="spin"></span> Sending…' : `Tell joke<span class="sub">${nearAmt(c.joke_fee)} NEAR</span>`);
   const lb = $('lullBtn');
   const mine = S.dash.me ? BigInt(S.dash.me.arf) : 0n;
   lb.disabled = S.busy.has('lullaby') || !l.present || l.napping || l.now < s.lullaby_ready_at || mine < BigInt(c.lullaby_cost);
-  lb.innerHTML = S.busy.has('lullaby') ? '<span class="spin"></span>' : 'Lullaby';
+  setHTML(lb, S.busy.has('lullaby') ? '<span class="spin"></span>' : 'Lullaby');
   lb.title = mine < BigInt(c.lullaby_cost) ? 'You need ARF for that: feed him or make him laugh first' : '';
 
   const p = $('pending');
   if (S.watching) {
     const waited = (performance.now() - S.watching.since) / 1000;
     const canRefund = waited >= c.joke_timeout_secs;
-    p.innerHTML = `<p class="hint" style="margin:10px 0 0">${waited < 20 ? 'Waiting for the judge…' : 'The judge is quiet. It only answers while someone runs a relayer.'}
-      ${waited >= 20 ? (canRefund ? `<button class="btn ghost small" id="refundBtn">Take my fee back</button>` : ` You can take your fee back in ${span(c.joke_timeout_secs - waited)}.`) : ''}</p>`;
-    if ($('refundBtn')) $('refundBtn').onclick = () => doRefund(S.watching.id);
-  } else if (p.innerHTML) p.innerHTML = '';
+    const changed = setHTML(p, `<p class="hint" style="margin:10px 0 0">${waited < 20 ? 'Waiting for the judge…' : 'The judge is quiet. It only answers while someone runs a relayer.'}
+      ${waited >= 20 ? (canRefund ? `<button class="btn ghost small" id="refundBtn">Take my fee back</button>` : ` You can take your fee back in ${span(c.joke_timeout_secs - waited)}.`) : ''}</p>`);
+    if (changed && $('refundBtn')) $('refundBtn').onclick = () => doRefund(S.watching.id);
+  } else setHTML(p, '');
 }
 
 function countChars() {
@@ -580,13 +595,13 @@ function renderVerdict() {
   const el = $('verdictCard');
   const j = S.focus;
   if (!j) {
-    el.innerHTML = `<h2>The verdict</h2><p class="muted">Nobody has told a joke yet. The first verdict will show up here, with the proof that the judge really said it.</p>`;
+    setHTML(el, `<h2>The verdict</h2><p class="muted">Nobody has told a joke yet. The first verdict will show up here, with the proof that the judge really said it.</p>`);
     return;
   }
   const laughed = j.score >= S.cfg.laugh_threshold;
   const key = S.judgeKeys[j.key_index];
   const proof = S.proof && S.proof.id === j.id ? S.proof : null;
-  el.innerHTML = `<h2>The verdict <small>joke #${j.id} by ${who(j.author)}</small></h2>
+  const changed = setHTML(el, `<h2>The verdict <small>joke #${j.id} by ${who(j.author)}</small></h2>
     <div class="vgrid"><div>
       <div class="dial"><div class="big${laughed ? '' : ' low'}">${j.score}<small>/10</small></div>
         <div><div class="quote">“${esc(j.quip)}”</div>
@@ -601,15 +616,15 @@ function renderVerdict() {
       <div class="line"><span>Response hash</span><span class="mono">${esc(j.response_hash.slice(0, 16))}…${esc(j.response_hash.slice(-8))}</span></div>
       <div class="line"><span>Delivered by</span><span>${who(j.relayer)} (a relayer cannot change it)</span></div>
       ${proof ? `<ul class="checks">${proof.checks.map((c) => `<li class="${c.ok ? 'ok' : 'bad'}">${esc(c.text)}</li>`).join('')}</ul>` : `<button class="btn ghost small" id="proofBtn" style="margin-top:10px">Check it yourself</button>`}
-    </div></div>`;
-  if ($('proofBtn')) $('proofBtn').onclick = () => checkProof(j);
+    </div></div>`);
+  if (changed && $('proofBtn')) $('proofBtn').onclick = () => checkProof(j);
 }
 
 function renderPantry() {
   const s = S.dash.state;
   const total = BigInt(s.pantry) + BigInt(s.circulating) + BigInt(s.burned);
   const pc = (v) => (Number((BigInt(v) * 100000n) / total) / 1000).toFixed(2) + '%';
-  $('pantryCard').innerHTML = `<h2>The pantry</h2>
+  setHTML($('pantryCard'), `<h2>The pantry</h2>
     <p class="muted">All 1,000,000,000 ARF started here. Nobody was given any. It only leaves as treats, and it burns when a pup is neglected.</p>
     <div class="supply"><i class="p" style="width:${pc(s.pantry)}"></i><i class="c" style="width:${pc(s.circulating)}"></i><i class="b" style="width:${pc(s.burned)}"></i></div>
     <div class="legend">
@@ -617,19 +632,19 @@ function renderPantry() {
       <div><span style="--c:#35c997">Earned by carers</span><b>${compact(s.circulating)}</b></div>
       <div><span style="--c:#ff5a4d">Burned</span><b>${compact(s.burned)}</b></div>
     </div>
-    <p class="muted" style="margin-top:12px">Longest-lived pup: <b style="color:var(--ink)">${s.best_age_secs ? `${span(s.best_age_secs)}${s.best_generation ? ` (pup #${s.best_generation})` : ' (and counting)'}` : 'none yet'}</b></p>`;
+    <p class="muted" style="margin-top:12px">Longest-lived pup: <b style="color:var(--ink)">${s.best_age_secs ? `${span(s.best_age_secs)}${s.best_generation ? ` (pup #${s.best_generation})` : ' (and counting)'}` : 'none yet'}</b></p>`);
 }
 
 function renderTop() {
   const top = S.dash.top;
-  $('topCard').innerHTML = `<h2>Best carers ${S.dash.state.generation ? `<small>of pup #${S.dash.state.generation}</small>` : ''}</h2>
+  setHTML($('topCard'), `<h2>Best carers ${S.dash.state.generation ? `<small>of pup #${S.dash.state.generation}</small>` : ''}</h2>
     ${top.length ? `<ol class="list">${top.slice(0, 6).map((t, i) => `<li class="${S.me && t.account_id === S.me.id ? 'me' : ''}"><span class="rank">${i + 1}</span><span class="who">${who(t.account_id)}</span><span class="val">${t.points} pts</span></li>`).join('')}</ol>` : '<p class="muted">Nobody yet. A fish for a hungry pup scores more than one for a full pup. A laugh scores ten times the joke.</p>'}
-    <p class="muted" style="margin-top:12px">The top ${5} get seats on the colony council.</p>`;
+    <p class="muted" style="margin-top:12px">The top ${5} get seats on the colony council.</p>`);
 }
 
 function renderJokes() {
   const jokes = S.dash.jokes;
-  $('jokesCard').innerHTML = `<h2>Latest jokes <small>${S.dash.state.jokes} told</small></h2>
+  setHTML($('jokesCard'), `<h2>Latest jokes <small>${S.dash.state.jokes} told</small></h2>
     ${jokes.length ? jokes.slice(0, 5).map((j) => {
       const laughed = j.score >= S.cfg.laugh_threshold;
       const cls = j.status === 'Pending' ? 'pending' : laughed ? 'laugh' : '';
@@ -637,12 +652,12 @@ function renderJokes() {
         <div class="text">${esc(j.text)}</div>
         <div class="meta"><span>${who(j.author)}</span><span>${ago(j.told_at)}</span>
         ${j.status === 'Judged' ? `<q>${esc(j.quip)}</q>${laughed ? `<span class="tag ok">+${compact(j.reward)} ARF</span>` : ''}` : j.status === 'Pending' ? '<span class="tag wait">waiting for the judge</span>' : '<span class="tag">refunded</span>'}</div></div>`;
-    }).join('') : '<p class="muted">No jokes yet.</p>'}`;
+    }).join('') : '<p class="muted">No jokes yet.</p>'}`);
 }
 
 function renderColony() {
   const s = S.dash.state, council = S.dash.council;
-  $('colonyCard').innerHTML = `<h2>The colony</h2>
+  const changed = setHTML($('colonyCard'), `<h2>The colony</h2>
     <p class="muted">Every fish and joke fee goes to a Sputnik DAO. Its council is not elected: it is whoever cares most.</p>
     <div class="legend">
       <div><span style="--c:#ffc94d">Treasury</span><b>${S.dao == null ? '…' : nearAmt(S.dao, 3)} NEAR</b></div>
@@ -654,9 +669,11 @@ function renderColony() {
       <button class="btn ghost small" id="rotateBtn" ${S.busy.has('rotate') ? 'disabled' : ''}>${S.busy.has('rotate') ? '<span class="spin"></span> Seating…' : 'Seat the top carers'}</button>
       <button class="btn ghost small" id="flushBtn" ${S.busy.has('flush') || s.treasury_accrued === '0' ? 'disabled' : ''}>Send fees to treasury</button>
     </div>
-    <p class="muted" style="margin-top:10px"><a href="${acctLink(D.colony_dao)}" target="_blank" rel="noopener">${esc(D.colony_dao)}</a></p>`;
-  $('rotateBtn').onclick = doRotate;
-  $('flushBtn').onclick = doFlush;
+    <p class="muted" style="margin-top:10px"><a href="${acctLink(D.colony_dao)}" target="_blank" rel="noopener">${esc(D.colony_dao)}</a></p>`);
+  if (changed) {
+    $('rotateBtn').onclick = doRotate;
+    $('flushBtn').onclick = doFlush;
+  }
 }
 
 function renderFeed() {
@@ -668,14 +685,14 @@ function renderFeed() {
     if (a.kind === 'arrived') return `Pup #${a.generation} arrived`;
     return `Pup #${a.generation} swam away <span class="tag no">${compact(a.amount)} burned</span>`;
   };
-  $('feedCard').innerHTML = `<h2>What just happened</h2>
-    ${S.dash.recent.length ? `<ul class="list">${S.dash.recent.slice(0, 7).map((a) => `<li><span class="who" style="white-space:normal">${line(a)}</span><span class="muted" style="font-size:12.5px;white-space:nowrap">${ago(a.at)}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing yet.</p>'}`;
+  setHTML($('feedCard'), `<h2>What just happened</h2>
+    ${S.dash.recent.length ? `<ul class="list">${S.dash.recent.slice(0, 7).map((a) => `<li><span class="who" style="white-space:normal">${line(a)}</span><span class="muted" style="font-size:12.5px;white-space:nowrap">${ago(a.at)}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing yet.</p>'}`);
 }
 
 function renderPast() {
   const h = S.dash.history;
-  $('pastCard').innerHTML = `<h2>Pups before him <small>${S.dash.state.generations_past} so far</small></h2>
-    ${h.length ? `<ul class="list">${h.map((g) => `<li><span class="rank">${g.generation}</span><span class="who" style="white-space:normal">lived ${span(g.left_at - g.born_at)}, ${g.feeds} fish, ${g.laughs} laughs, ${g.carers} carers</span><span class="tag no">${compact(g.burned)} burned</span></li>`).join('')}</ul>` : '<p class="muted">No pup has swum away yet. Keep it that way.</p>'}`;
+  setHTML($('pastCard'), `<h2>Pups before him <small>${S.dash.state.generations_past} so far</small></h2>
+    ${h.length ? `<ul class="list">${h.map((g) => `<li><span class="rank">${g.generation}</span><span class="who" style="white-space:normal">lived ${span(g.left_at - g.born_at)}, ${g.feeds} fish, ${g.laughs} laughs, ${g.carers} carers</span><span class="tag no">${compact(g.burned)} burned</span></li>`).join('')}</ul>` : '<p class="muted">No pup has swum away yet. Keep it that way.</p>'}`);
 }
 
 function renderRules() {
@@ -720,7 +737,7 @@ function paint() {
   const gone = $('gone');
   if (!live().present && S.dash.state.generation > 0) {
     gone.hidden = false;
-    gone.innerHTML = `<h3>He swam away</h3><p>Nobody fed pup #${S.dash.state.generation} in time, and ${S.cfg.starve_burn_bps / 100}% of the pantry burned.</p>`;
+    setHTML(gone, `<h3>He swam away</h3><p>Nobody fed pup #${S.dash.state.generation} in time, and ${S.cfg.starve_burn_bps / 100}% of the pantry burned.</p>`);
   } else gone.hidden = true;
 }
 
