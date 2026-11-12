@@ -14,6 +14,12 @@ Every fee goes to a Sputnik DAO whose council is not elected. It is whoever care
 
 Built at NEAR HACKATHON, November 2026. Everything runs on **testnet**; ARF has no value.
 
+[![Arf claps for a joke that the AI judge scored 8 out of 10](docs/poster.jpg)](docs/arf-demo.mp4)
+
+**Demo video (98 seconds):** [docs/arf-demo.mp4](docs/arf-demo.mp4). Every action in it is a real
+transaction on `arf-demo.testnet`, the fast-forward game: the guest account, the fish, both judged
+jokes, the swim-away burn and the council seating. Waiting time is compressed and marked on screen.
+
 | | |
 | --- | --- |
 | Play | https://chinesepowered.github.io/hack-nearhacks2/ (the same file is [`docs/index.html`](docs/index.html); or run it locally, see below) |
