@@ -27,6 +27,7 @@ const S = {
   focus: null, // joke shown in the verdict card
   proof: null, // { id, checks }
   proofOpen: false,
+  farewellShown: 0, // generation whose swim-away we already animated
 };
 
 // ------------------------------------------------------------------ small helpers
@@ -312,6 +313,29 @@ function splash() {
   }
 }
 
+/** He just swam away: play it, and (if we have an account) ask the contract to record it. */
+function farewell(generation, burned) {
+  if (S.farewellShown >= generation) return;
+  S.farewellShown = generation;
+  const pup = $('pup');
+  pup.classList.remove('absent');
+  pup.classList.add('leaving');
+  splash();
+  setTimeout(splash, 500);
+  setTimeout(() => plus(`${compact(burned)} ARF burned`, true), 700);
+  setTimeout(() => {
+    pup.classList.add('absent');
+    pup.classList.remove('leaving');
+  }, 1500);
+  if (S.me && !S.busy.has('poke')) {
+    S.busy.add('poke');
+    near.call(S.me.id, S.me.key, C, 'poke', {}, { gas: 30n * TGAS }).catch(() => {}).finally(() => {
+      S.busy.delete('poke');
+      poll(true);
+    });
+  }
+}
+
 function showVerdict(joke, mine) {
   S.focus = joke;
   S.proof = null;
@@ -332,16 +356,17 @@ function react(dash) {
   if (first) S.seen = new Set();
   const fresh = dash.recent.filter((a) => !S.seen.has(key(a))).reverse();
   for (const a of dash.recent) S.seen.add(key(a));
-  if (first) return;
+  if (first) {
+    if (!dash.state.present) S.farewellShown = dash.state.generation;
+    return;
+  }
   for (const a of fresh) {
     const mine = S.me && a.who === S.me.id;
     if (a.kind === 'fed' && !mine) {
       setAct('is-munching', 1400);
       say(`Yum! Thank you, ${nick(a.who)}!`, 'fish', 4000);
     } else if (a.kind === 'left') {
-      $('pup').classList.add('leaving');
-      splash();
-      plus(`${compact(a.amount)} ARF burned`, true);
+      farewell(a.generation, a.amount);
     } else if (a.kind === 'arrived') {
       $('pup').classList.remove('leaving', 'absent');
       $('pup').classList.add('arriving');
@@ -409,7 +434,10 @@ function paintPup() {
   const l = live();
   const pup = $('pup');
   if (!l.present) {
-    if (!pup.classList.contains('leaving')) pup.classList.add('absent');
+    const s = S.dash.state;
+    // The chain says he was here at the last poll and our clock says his belly just hit zero.
+    if (s.present && s.generation > S.farewellShown) farewell(s.generation, (BigInt(s.pantry) * BigInt(S.cfg.starve_burn_bps)) / 10000n);
+    else if (!pup.classList.contains('leaving')) pup.classList.add('absent');
   } else pup.classList.remove('absent', 'leaving');
   const cls = ['seal'];
   const acting = S.act && performance.now() < S.act.until ? S.act.cls : null;

@@ -5,7 +5,7 @@
 //   NEAR_AI_API_KEY=... node scripts/e2e.mjs --name arf-pup --joke "..."   also tells and judges a joke
 import { join } from 'node:path';
 import { KeyPair, TGAS, formatArf, formatNear } from '../web/near-lite.js';
-import { ROOT, loadKey, near, readJson } from './lib/testnet.mjs';
+import { ROOT, loadKey, near, readJson, saveKey } from './lib/testnet.mjs';
 import { judgeJoke } from './lib/judge.mjs';
 
 const arg = (n, f) => (process.argv.indexOf('--' + n) > 0 ? process.argv[process.argv.indexOf('--' + n) + 1] : f);
@@ -24,6 +24,7 @@ const doorman = KeyPair.fromString(d.doorman_key);
 const me = KeyPair.random();
 const { value: guestId } = await near.call(C, doorman, C, 'welcome_guest', { public_key: me.publicKeyString }, { gas: 40n * TGAS });
 for (let i = 0; i < 20 && !(await near.account(guestId)); i++) await new Promise((r) => setTimeout(r, 500));
+saveKey(guestId, me); // kept in ./keys so the guest can come back (it may end up on the council)
 say(`guest account ${guestId} with ${formatNear((await near.account(guestId)).amount)} NEAR`);
 
 // 2. feed (if he is too full, say so instead of failing)
