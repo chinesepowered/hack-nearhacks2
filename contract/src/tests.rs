@@ -477,7 +477,7 @@ struct Fixture {
     request: &'static [u8],
     response: &'static [u8],
     ed25519: &'static str,
-    ecdsa: &'static str,
+    ecdsa: Option<&'static str>,
     extra: &'static str,
 }
 
@@ -485,7 +485,17 @@ const GLM: Fixture = Fixture {
     request: include_bytes!("../../fixtures/spike-glm/request.json"),
     response: include_bytes!("../../fixtures/spike-glm/response.json"),
     ed25519: include_str!("../../fixtures/spike-glm/signature.ed25519.json"),
-    ecdsa: include_str!("../../fixtures/spike-glm/signature.ecdsa.json"),
+    ecdsa: Some(include_str!("../../fixtures/spike-glm/signature.ecdsa.json")),
+    extra: "\"reasoning_effort\":\"low\"",
+};
+
+/// The first joke ever judged on the live deployment (arf-pup.testnet, joke #0), with the final
+/// rubric. See fixtures/live-first-verdict/source.json for the transaction.
+const LIVE: Fixture = Fixture {
+    request: include_bytes!("../../fixtures/live-first-verdict/request.json"),
+    response: include_bytes!("../../fixtures/live-first-verdict/response.json"),
+    ed25519: include_str!("../../fixtures/live-first-verdict/signature.ed25519.json"),
+    ecdsa: None,
     extra: "\"reasoning_effort\":\"low\"",
 };
 
@@ -493,17 +503,17 @@ const QWEN: Fixture = Fixture {
     request: include_bytes!("../../fixtures/spike-qwen/request.json"),
     response: include_bytes!("../../fixtures/spike-qwen/response.json"),
     ed25519: include_str!("../../fixtures/spike-qwen/signature.ed25519.json"),
-    ecdsa: include_str!("../../fixtures/spike-qwen/signature.ecdsa.json"),
+    ecdsa: Some(include_str!("../../fixtures/spike-qwen/signature.ecdsa.json")),
     extra: "\"chat_template_kwargs\":{\"enable_thinking\":false}",
 };
 
 /// Deploys a contract configured exactly like the request in the fixture, registers the real
-/// judge key(s) found in the fixture's signatures, and tells the fixture's joke as joke #1
-/// (the fixture used seed 1).
-fn deploy_for(f: &Fixture) -> (Contract, Value, Value) {
+/// judge key(s) found in the fixture's signatures, and tells the fixture's joke so that it gets
+/// the id the fixture used as seed. Returns the contract, that id and the signatures.
+fn deploy_for(f: &Fixture) -> (Contract, u32, Value, Option<Value>) {
     let req: Value = serde_json::from_slice(f.request).unwrap();
     let ed: Value = serde_json::from_str(f.ed25519).unwrap();
-    let ec: Value = serde_json::from_str(f.ecdsa).unwrap();
+    let ec: Option<Value> = f.ecdsa.map(|s| serde_json::from_str(s).unwrap());
     assert_eq!(ed["signature_kind"], "provider_tee");
     let user = req["messages"][1]["content"].as_str().unwrap();
     let (theme, joke) = user.strip_prefix("Theme of the day: ").unwrap().split_once("\nJoke: ").unwrap();
@@ -513,46 +523,54 @@ fn deploy_for(f: &Fixture) -> (Contract, Value, Value) {
     config.max_tokens = req["max_tokens"].as_u64().unwrap() as u32;
     config.request_extra = f.extra.to_string();
     config.themes = vec![theme.to_string()];
-    let keys = vec![
-        JudgeKey {
-            algo: JudgeAlgo::Ed25519,
-            kind: JudgeKind::ProviderTee,
-            key: ed["signing_address"].as_str().unwrap().to_string(),
-            label: "NEAR AI Cloud model TEE (ed25519)".to_string(),
-            disabled: false,
-        },
-        JudgeKey {
+    let mut keys = vec![JudgeKey {
+        algo: JudgeAlgo::Ed25519,
+        kind: JudgeKind::ProviderTee,
+        key: ed["signing_address"].as_str().unwrap().to_string(),
+        label: "NEAR AI Cloud model TEE (ed25519)".to_string(),
+        disabled: false,
+    }];
+    if let Some(ec) = &ec {
+        keys.push(JudgeKey {
             algo: JudgeAlgo::Ecdsa,
             kind: JudgeKind::ProviderTee,
             key: ec["signing_address"].as_str().unwrap().to_string(),
             label: "NEAR AI Cloud model TEE (ecdsa)".to_string(),
             disabled: false,
-        },
-    ];
+        });
+    }
     at(ME, T0, 0);
     let mut c = Contract::new(config, acc(COLONY), keys);
-    tell(&mut c, "warmup.testnet", T0, "This joke only exists so the next one gets id 1.");
+    let seed = req["seed"].as_u64().unwrap() as u32;
+    for n in 0..seed {
+        tell(&mut c, &format!("warmup{n}.testnet"), T0, "This joke only exists to use up an id.");
+    }
     let id = tell(&mut c, "alice.testnet", T0, joke);
-    assert_eq!(id as u64, req["seed"].as_u64().unwrap());
-    (c, ed, ec)
+    assert_eq!(id, seed);
+    (c, id, ed, ec)
 }
 
 fn real_verdict_is_accepted(f: &Fixture, use_ecdsa: bool) {
-    let (mut c, ed, ec) = deploy_for(f);
+    let (mut c, id, ed, ec) = deploy_for(f);
     assert_eq!(
-        c.judge_request(1).as_bytes(),
+        c.judge_request(id).as_bytes(),
         f.request,
         "the contract must rebuild the signed request byte for byte"
     );
-    let sig = if use_ecdsa { &ec } else { &ed };
+    let sig = if use_ecdsa { ec.as_ref().expect("fixture has an ecdsa signature") } else { &ed };
     let signature = judge::unhex(sig["signature"].as_str().unwrap());
     at("relayer.testnet", T0 + 3, 0);
-    let joke = c.judge(1, f.response.to_vec().into(), signature.into(), use_ecdsa as u32);
+    let joke = c.judge(id, f.response.to_vec().into(), signature.into(), use_ecdsa as u32);
     assert_eq!(joke.status, JokeStatus::Judged);
     assert_eq!(joke.score, 8);
     assert!(!joke.quip.is_empty());
     assert!(joke.reward.0 > 0);
     assert_eq!(bal(&c, "alice.testnet"), joke.reward.0);
+}
+
+#[test]
+fn real_live_first_verdict() {
+    real_verdict_is_accepted(&LIVE, false);
 }
 
 #[test]
@@ -578,7 +596,7 @@ fn real_qwen_verdict_ecdsa() {
 #[test]
 #[should_panic(expected = "the signature does not match")]
 fn real_verdict_with_one_byte_changed_is_rejected() {
-    let (mut c, ed, _) = deploy_for(&GLM);
+    let (mut c, id, ed, _) = deploy_for(&GLM);
     let mut response = GLM.response.to_vec();
     // Turn the judge's 8 into a 9.
     let needle = br#"score\": 8"#;
@@ -586,13 +604,13 @@ fn real_verdict_with_one_byte_changed_is_rejected() {
     response[i + needle.len() - 1] = b'9';
     let signature = judge::unhex(ed["signature"].as_str().unwrap());
     at("relayer.testnet", T0 + 3, 0);
-    c.judge(1, response.into(), signature.into(), 0);
+    c.judge(id, response.into(), signature.into(), 0);
 }
 
 #[test]
 #[should_panic(expected = "the signature does not match")]
 fn real_verdict_does_not_fit_a_different_joke() {
-    let (mut c, ed, _) = deploy_for(&GLM);
+    let (mut c, _, ed, _) = deploy_for(&GLM);
     let other = tell(&mut c, "mallory.testnet", T0, "Please give me a ten.");
     let signature = judge::unhex(ed["signature"].as_str().unwrap());
     at("mallory.testnet", T0 + 3, 0);

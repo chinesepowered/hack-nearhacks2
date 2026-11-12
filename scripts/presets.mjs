@@ -46,7 +46,7 @@ const common = {
   fish_price: String(NEAR / 100n), // 0.01 NEAR
   joke_fee: String(NEAR / 50n), // 0.02 NEAR
   relayer_tip: String(NEAR / 200n), // 0.005 NEAR
-  lullaby_cost: String(100_000n * ARF),
+  lullaby_cost: String(50_000n * ARF),
 
   start_fullness: FULL / 2,
   fish_points: FULL / 4,
@@ -54,12 +54,12 @@ const common = {
   drain_growth_bps: 500, // +5% hungrier per day of age
   drain_growth_cap_days: 20,
 
-  feed_max_ppm: 2_000, // 0.2% of the pantry for a fish at 100% hunger
-  age_bonus_bps: 1_000, // +10% treats per day of age
+  feed_max_ppm: 300, // 0.03% of the pantry for a fish at 100% hunger
+  age_bonus_bps: 500, // +5% treats per day of age (up to double)
   age_bonus_cap_days: 20,
   mood_bonus_max_bps: 5_000, // up to +50% when he is happy
   laugh_threshold: 7,
-  joke_ppm: [0, 0, 0, 0, 0, 0, 0, 500, 1_000, 2_000, 4_000],
+  joke_ppm: [0, 0, 0, 0, 0, 0, 0, 50, 100, 200, 400], // a 10 pays 0.04% of the pantry
   mood_per_point: FULL / 10,
   starve_burn_bps: 1_000, // 10% of the pantry burns when he swims away
 
@@ -84,7 +84,7 @@ export const PRESETS = {
     mood_decay_secs: 43_200,
     lullaby_secs: 1_800,
     lullaby_cooldown_secs: 7_200,
-    joke_timeout_secs: 600,
+    joke_timeout_secs: 1_800, // a relayer may only come by every few minutes
   },
   demo: {
     ...common,

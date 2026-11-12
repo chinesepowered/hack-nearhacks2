@@ -1,0 +1,34 @@
+# Optional: lets GitHub Actions deliver the judge's verdicts for the live game every few minutes,
+# so jokes get judged even when nobody runs a relayer. It does nothing until two repository
+# secrets exist (Settings > Secrets and variables > Actions):
+#   NEAR_AI_API_KEY   a NEAR AI Cloud API key (https://cloud.near.ai)
+#   ARF_RELAYER_KEY   the relayer's testnet secret key ("ed25519:..."), from keys/arf-pup-relayer.testnet.json
+name: relayer
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+concurrency: relayer
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that the secrets are set
+        id: gate
+        env:
+          HAS_KEYS: ${{ secrets.NEAR_AI_API_KEY != '' && secrets.ARF_RELAYER_KEY != '' }}
+        run: echo "ready=$HAS_KEYS" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.ready == 'true'
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev
+        if: steps.gate.outputs.ready == 'true'
+      - name: Deliver waiting verdicts
+        if: steps.gate.outputs.ready == 'true'
+        env:
+          NEAR_AI_API_KEY: ${{ secrets.NEAR_AI_API_KEY }}
+          ARF_RELAYER_KEY: ${{ secrets.ARF_RELAYER_KEY }}
+        run: node scripts/relayer.mjs --name arf-pup --once

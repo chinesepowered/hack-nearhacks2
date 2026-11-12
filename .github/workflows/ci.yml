@@ -1,0 +1,27 @@
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: contract
+      - name: Contract unit tests (includes replays of real NEAR AI Cloud verdicts)
+        run: cargo test --manifest-path contract/Cargo.toml
+      - name: Contract builds to wasm
+        run: cd contract && RUSTFLAGS='-C link-arg=-s --cfg near' cargo build --target wasm32-unknown-unknown --release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Sixty-day simulation runs and is deterministic
+        run: node scripts/sim.mjs && git diff --exit-code docs/sim.csv
+      - name: Page builds
+        run: node scripts/build-web.mjs --name arf-pup

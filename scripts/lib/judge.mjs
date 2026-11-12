@@ -1,6 +1,7 @@
 // The relayer's whole job: carry bytes between the contract and NEAR AI Cloud without touching them.
 // It cannot change a verdict: the contract rebuilds the request itself and checks the signature.
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { TGAS, b64encode, unhex, utf8 } from '../../web/near-lite.js';
 
 const API = 'https://cloud-api.near.ai/v1';
@@ -40,5 +41,14 @@ export async function judgeJoke(near, contractId, relayerId, relayerKey, jokeId,
   const keyIndex = keys.findIndex((k) => !k.disabled && k.algo === 'Ed25519' && k.key.replace(/^0x/, '').toLowerCase() === signer);
   if (keyIndex < 0) throw new Error(`the judge signed with ${signer}, which is not a registered judge key (did the model's TEE key rotate?)`);
   const out = await near.call(relayerId, relayerKey, contractId, 'judge', { joke_id: jokeId, response: b64encode(response), signature: b64encode(unhex(signature.signature)), key_index: keyIndex }, { gas: 60n * TGAS });
+  // Optionally keep the exact bytes, so the verdict can be replayed in the contract's unit tests.
+  if (process.env.ARF_SAVE_FIXTURE) {
+    const dir = process.env.ARF_SAVE_FIXTURE;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'request.json'), request);
+    writeFileSync(join(dir, 'response.json'), response);
+    writeFileSync(join(dir, 'signature.ed25519.json'), JSON.stringify(signature));
+    writeFileSync(join(dir, 'source.json'), JSON.stringify({ contract: contractId, joke_id: jokeId, tx: out.txHash }, null, 2) + '\n');
+  }
   return { joke: out.value, txHash: out.txHash, signature };
 }

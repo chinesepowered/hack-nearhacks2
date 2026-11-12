@@ -1,21 +1,27 @@
 // Watches the contract for jokes waiting for a verdict and delivers the judge's signed answers.
 // Anyone can run one. It earns the relayer tip for each delivered verdict.
 //
-//   NEAR_AI_API_KEY=... node scripts/relayer.mjs --name arf-pup
+//   NEAR_AI_API_KEY=... node scripts/relayer.mjs --name arf-pup          keeps watching
+//   NEAR_AI_API_KEY=... node scripts/relayer.mjs --name arf-pup --once   one pass, then exits
 import { join } from 'node:path';
+import { KeyPair } from '../web/near-lite.js';
 import { ROOT, loadKey, near, readJson } from './lib/testnet.mjs';
 import { judgeJoke } from './lib/judge.mjs';
 
 const i = process.argv.indexOf('--name');
+const once = process.argv.includes('--once');
 const d = readJson(join(ROOT, 'deployments', (i > 0 ? process.argv[i + 1] : 'arf-pup') + '.json'));
 if (!d) throw new Error('unknown deployment; pass --name <deployment>');
-const relayerKey = loadKey(d.relayer);
-if (!relayerKey) throw new Error(`no key for ${d.relayer} in ./keys`);
-console.log(`relaying verdicts for ${d.contract} as ${d.relayer}`);
+// The relayer's own testnet key: ./keys/<relayer>.json, or ARF_RELAYER_KEY (for CI).
+const relayerKey = process.env.ARF_RELAYER_KEY ? KeyPair.fromString(process.env.ARF_RELAYER_KEY.trim()) : loadKey(d.relayer);
+if (!relayerKey) throw new Error(`no key for ${d.relayer}: put it in ./keys or set ARF_RELAYER_KEY`);
+console.log(`relaying verdicts for ${d.contract} as ${d.relayer}${once ? ' (one pass)' : ''}`);
 const failed = new Map();
 for (;;) {
   try {
-    for (const id of await near.view(d.contract, 'get_pending_jokes', { limit: 10 })) {
+    const pending = await near.view(d.contract, 'get_pending_jokes', { limit: 10 });
+    if (once && !pending.length) console.log('no jokes are waiting');
+    for (const id of pending) {
       if ((failed.get(id) || 0) >= 3) continue;
       try {
         const { joke, txHash } = await judgeJoke(near, d.contract, d.relayer, relayerKey, id);
@@ -28,5 +34,6 @@ for (;;) {
   } catch (e) {
     console.log('poll failed:', e.message);
   }
+  if (once) break;
   await new Promise((r) => setTimeout(r, Number(process.env.POLL_MS || 800)));
 }
