@@ -1,0 +1,12 @@
+# build output
+target/
+node_modules/
+dist/
+out/
+# never commit keys
+.env
+.env.*
+*.key
+keys/
+secrets/
+neardev/
