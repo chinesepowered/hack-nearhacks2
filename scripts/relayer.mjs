@@ -28,5 +28,5 @@ for (;;) {
   } catch (e) {
     console.log('poll failed:', e.message);
   }
-  await new Promise((r) => setTimeout(r, Number(process.env.POLL_MS || 1500)));
+  await new Promise((r) => setTimeout(r, Number(process.env.POLL_MS || 800)));
 }

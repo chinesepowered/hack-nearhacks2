@@ -265,6 +265,24 @@ pub struct StateView {
     pub guests: u32,
 }
 
+/// Everything the page needs, in one view call.
+#[near(serializers = [json])]
+pub struct Dashboard {
+    pub state: StateView,
+    pub top: Vec<TopEntry>,
+    pub recent: Vec<Activity>,
+    pub jokes: Vec<Joke>,
+    pub history: Vec<GenRecord>,
+    pub council: Vec<AccountId>,
+    pub me: Option<MeView>,
+}
+
+#[near(serializers = [json])]
+pub struct MeView {
+    pub arf: U128,
+    pub carer: Carer,
+}
+
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
@@ -903,6 +921,23 @@ impl Contract {
             generations_past: self.history.len(),
             treasury_accrued: U128(self.treasury_accrued),
             guests: self.guests,
+        }
+    }
+
+    /// State, leaderboard, feed, latest jokes, past pups and council in one call, plus the
+    /// caller's own balance and record when `account_id` is given.
+    pub fn get_dashboard(&self, account_id: Option<AccountId>) -> Dashboard {
+        Dashboard {
+            state: self.get_state(),
+            top: self.top.clone(),
+            recent: self.recent.clone(),
+            jokes: self.get_jokes(None, Some(8)),
+            history: self.get_history(None, Some(5)),
+            council: self.council.clone(),
+            me: account_id.map(|id| MeView {
+                arf: U128(self.token.accounts.get(&id).unwrap_or(0)),
+                carer: self.carers.get(&id).cloned().unwrap_or_default(),
+            }),
         }
     }
 
