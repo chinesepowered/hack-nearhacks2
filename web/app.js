@@ -1,3 +1,5 @@
+// Gas limits are deliberately small: a caller must prepay whatever is attached, and a guest
+// account only holds 0.15 testnet NEAR. Real use is 3 to 5 Tgas per call.
 // Arf's page. No backend: it reads the contract over NEAR RPC and signs transactions in the
 // browser with a guest key that the contract's public "doorman" key lets it create.
 
@@ -150,7 +152,7 @@ async function ensureGuest() {
   if (S.me) return S.me;
   const key = KeyPair.random();
   const doorman = KeyPair.fromString(D.doorman_key);
-  const { value: id } = await near.call(C, doorman, C, 'welcome_guest', { public_key: key.publicKeyString }, { gas: 40n * TGAS });
+  const { value: id } = await near.call(C, doorman, C, 'welcome_guest', { public_key: key.publicKeyString }, { gas: 30n * TGAS });
   for (let i = 0; i < 30 && !(await near.account(id)); i++) await sleep(400);
   localStorage.setItem(STORE, JSON.stringify({ id, secret: key.toString() }));
   S.me = { id, key };
@@ -187,7 +189,7 @@ const doFeed = () =>
   run('feed', async () => {
     const me = await ensureGuest();
     const absent = !live().present;
-    const r = await near.call(me.id, me.key, C, 'feed', {}, { gas: 40n * TGAS, deposit: BigInt(S.cfg.fish_price) });
+    const r = await near.call(me.id, me.key, C, 'feed', {}, { gas: 15n * TGAS, deposit: BigInt(S.cfg.fish_price) });
     if (!absent) tossFish();
     setAct('is-munching', 1500);
     plus(`+${arf(r.value)} ARF`);
@@ -200,7 +202,7 @@ const doJoke = () =>
     const text = $('jokeText').value.trim();
     if (!text) return toast('Type a joke first', true);
     const me = await ensureGuest();
-    const r = await near.call(me.id, me.key, C, 'tell_joke', { text }, { gas: 40n * TGAS, deposit: BigInt(S.cfg.joke_fee) });
+    const r = await near.call(me.id, me.key, C, 'tell_joke', { text }, { gas: 15n * TGAS, deposit: BigInt(S.cfg.joke_fee) });
     $('jokeText').value = '';
     countChars();
     S.watching = { id: r.value, since: performance.now() };
@@ -213,7 +215,7 @@ const doJoke = () =>
 const doLullaby = () =>
   run('lullaby', async () => {
     const me = await ensureGuest();
-    await near.call(me.id, me.key, C, 'lullaby', {}, { gas: 40n * TGAS });
+    await near.call(me.id, me.key, C, 'lullaby', {}, { gas: 15n * TGAS });
     note('♪');
     plus(`-${arf(S.cfg.lullaby_cost)} ARF burned`, true);
     await poll(true);
@@ -222,7 +224,7 @@ const doLullaby = () =>
 const doRefund = (id) =>
   run('refund', async () => {
     const me = await ensureGuest();
-    await near.call(me.id, me.key, C, 'refund_joke', { joke_id: id }, { gas: 30n * TGAS });
+    await near.call(me.id, me.key, C, 'refund_joke', { joke_id: id }, { gas: 10n * TGAS });
     S.watching = null;
     setAct(null);
     toast('Joke fee refunded');
@@ -233,7 +235,7 @@ const doRefund = (id) =>
 const doRotate = () =>
   run('rotate', async () => {
     const me = await ensureGuest();
-    const r = await near.call(me.id, me.key, C, 'rotate_council', {}, { gas: 220n * TGAS });
+    const r = await near.call(me.id, me.key, C, 'rotate_council', {}, { gas: 60n * TGAS });
     toast(r.value ? 'The colony council has been seated' : 'The DAO refused the new council', !r.value);
     await poll(true);
   });
@@ -241,7 +243,7 @@ const doRotate = () =>
 const doFlush = () =>
   run('flush', async () => {
     const me = await ensureGuest();
-    await near.call(me.id, me.key, C, 'flush_treasury', {}, { gas: 30n * TGAS });
+    await near.call(me.id, me.key, C, 'flush_treasury', {}, { gas: 10n * TGAS });
     toast('Fees sent to the colony treasury');
     await Promise.all([poll(true), refreshBalances()]);
     paint();
@@ -342,7 +344,7 @@ function farewell(generation, burned) {
   }, 1500);
   if (S.me && !S.busy.has('poke')) {
     S.busy.add('poke');
-    near.call(S.me.id, S.me.key, C, 'poke', {}, { gas: 30n * TGAS }).catch(() => {}).finally(() => {
+    near.call(S.me.id, S.me.key, C, 'poke', {}, { gas: 10n * TGAS }).catch(() => {}).finally(() => {
       S.busy.delete('poke');
       poll(true);
     });

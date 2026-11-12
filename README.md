@@ -180,7 +180,7 @@ More in [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md).
 ```
 contract/        Rust contract (near-sdk 5.30): lib.rs (pup, pantry, token), judge.rs, dao.rs, tests.rs
 web/             The page: app.js, seal.js (the pup), near-lite.js (keys, borsh transactions, RPC), style.css
-scripts/         deploy.mjs, relayer.mjs, e2e.mjs, verify-verdict.mjs, colony.mjs, sim.mjs, judge-keys.mjs, presets.mjs
+scripts/         deploy.mjs, upgrade.mjs, relayer.mjs, e2e.mjs, verify-verdict.mjs, colony.mjs, sim.mjs, judge-keys.mjs, presets.mjs
 fixtures/        Verdicts really signed by NEAR AI Cloud, the judge's attestation report and keys
 deployments/     Public details of the deployed games
 docs/            index.html (the built page), MECHANICS.md, SIMULATION.md, THREAT_MODEL.md

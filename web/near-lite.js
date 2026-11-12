@@ -204,6 +204,7 @@ export class NearError extends Error {
 /** Pulls the human sentence out of a failed outcome ("Smart contract panicked: ..."). */
 function failureMessage(failure) {
   const text = JSON.stringify(failure);
+  if (/NotEnoughBalance|LackBalanceForState/.test(text)) return 'this account does not hold enough NEAR to pay for that';
   const panic = text.match(/Smart contract panicked: ([^"\\]*(?:\\.[^"\\]*)*)/);
   if (panic) return JSON.parse('"' + panic[1] + '"');
   const kind = text.match(/"kind":\{"([A-Za-z]+)"/);
@@ -230,6 +231,7 @@ export class Near {
         const body = await res.json();
         if (body.error) {
           const cause = body.error.cause?.name || body.error.name || 'RPC_ERROR';
+          if (/NotEnoughBalance|LackBalanceForState/.test(JSON.stringify(body.error))) throw new NearError('this account does not hold enough NEAR to pay for that', body.error);
           throw new NearError(cause + ': ' + (body.error.data ? JSON.stringify(body.error.data).slice(0, 300) : body.error.message), body.error);
         }
         return body.result;

@@ -13,6 +13,14 @@ use near_sdk::{env, near, require, AccountId, Gas, NearToken, Promise, PromiseEr
 /// How many carers get a seat.
 pub const COUNCIL_SIZE: usize = 5;
 
+// Gas for the two DAO calls and our two callbacks. Measured use is about 2 to 3 Tgas each; the
+// limits are kept low on purpose, because the caller has to prepay everything that is attached
+// and a guest account only holds a fraction of a NEAR. 60 Tgas attached is enough.
+const GAS_ADD_PROPOSAL: Gas = Gas::from_tgas(12);
+const GAS_ON_PROPOSED: Gas = Gas::from_tgas(28);
+const GAS_ACT_PROPOSAL: Gas = Gas::from_tgas(14);
+const GAS_ON_SEATED: Gas = Gas::from_tgas(5);
+
 /// What a council member may do in the DAO: spend, call other contracts, hold signalling votes.
 const COUNCIL_PERMISSIONS: [&str; 5] = ["transfer:*", "call:*", "vote:*", "add_bounty:*", "bounty_done:*"];
 
@@ -59,11 +67,11 @@ impl Contract {
                 "add_proposal".to_string(),
                 args.to_string().into_bytes(),
                 NearToken::from_yoctonear(0),
-                Gas::from_tgas(30),
+                GAS_ADD_PROPOSAL,
             )
             .then(
                 Self::ext(env::current_account_id())
-                    .with_static_gas(Gas::from_tgas(80))
+                    .with_static_gas(GAS_ON_PROPOSED)
                     .on_council_proposed(kind.to_string(), members, day),
             )
     }
@@ -85,10 +93,10 @@ impl Contract {
         let args = format!("{{\"id\":{},\"action\":\"VoteApprove\",\"proposal\":{},\"memo\":null}}", id, kind);
         PromiseOrValue::Promise(
             Promise::new(self.treasury.clone())
-                .function_call("act_proposal".to_string(), args.into_bytes(), NearToken::from_yoctonear(0), Gas::from_tgas(40))
+                .function_call("act_proposal".to_string(), args.into_bytes(), NearToken::from_yoctonear(0), GAS_ACT_PROPOSAL)
                 .then(
                     Self::ext(env::current_account_id())
-                        .with_static_gas(Gas::from_tgas(10))
+                        .with_static_gas(GAS_ON_SEATED)
                         .on_council_seated(id, members, day),
                 ),
         )

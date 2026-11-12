@@ -22,7 +22,7 @@ if (!key) {
 const councilOf = async () => (await near.view(d.colony_dao, 'get_policy')).roles.find((r) => r.name === 'council').kind.Group;
 console.log('council before:', (await councilOf()).join(', '));
 try {
-  const r = await near.call(id, key, C, 'rotate_council', {}, { gas: 220n * TGAS });
+  const r = await near.call(id, key, C, 'rotate_council', {}, { gas: 60n * TGAS });
   console.log(r.value ? `council seated (tx ${r.txHash})` : 'the DAO refused the new council');
 } catch (e) {
   console.log('not rotated:', e.message);
