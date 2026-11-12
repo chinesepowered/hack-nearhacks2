@@ -57,3 +57,4 @@ Written for someone deciding how much to trust this. "Handled" means the contrac
 | The deployer redeploys the contract | Open | The contract account still has its full-access key so a bug found during judging can be fixed. Deleting that key makes the code final. Until then, "no owner" describes the code, not the deployment. |
 | The first DAO council was the deployer | Closed | It was replaced by the first `rotate_council` (transaction `HKBr9SftSestiYDACnPPke9tjhtKTCGFw6kDGg1Xr6Vj`). |
 | Parameters are changed later | Handled | There is no method that writes the config. |
+| The contract runs out of NEAR for storage | Open | Every joke stays on chain (about 600 bytes), and all fees are passed on to the colony, so storage is paid from the contract's own balance. That is fine for a testnet game; a production version would keep a storage share of each fee. |

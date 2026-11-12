@@ -120,6 +120,11 @@ NEAR. The page calls it with a public function-call key that can call nothing el
 limited (20 per hour) and never spends fees owed to the colony, pending joke fees, or the NEAR
 that pays for the contract's storage.
 
+A transaction has to prepay all the gas attached to it, and a guest holds a fraction of a NEAR.
+So the page attaches small limits (10 to 15 Tgas; 60 for `rotate_council`), and the contract
+reserves only about 60 Tgas for its two DAO calls and callbacks. Measured use is 3 to 5 Tgas per
+call, about 11 Tgas for a council rotation.
+
 ## 8. Who gains from what
 
 - **Carers** earn ARF and want the pup alive: a burn takes 10% of their future treats.
