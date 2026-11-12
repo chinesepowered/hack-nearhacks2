@@ -1,0 +1,13 @@
+{
+  "network": "testnet",
+  "preset": "demo",
+  "contract": "arf-dev1.testnet",
+  "colony_dao": "arf-dev1-colony.sputnikv2.testnet",
+  "relayer": "arf-dev1-relayer.testnet",
+  "operator": "arf-dev1-ops.testnet",
+  "rpc": "https://test.rpc.fastnear.com",
+  "explorer": "https://testnet.nearblocks.io",
+  "judge_model": "z-ai/glm-5.3-flash",
+  "doorman_key": "ed25519:38UVKKCEd6CiKynzw8ZTsZLmuuxPXPUnL8vwMcvhKuMvMVHYoDCiF2cQ2N9VMj5k9VXwU4LYsHvmNjBjcxGyW7e2",
+  "deployed_at": "2026-11-12T20:02:34.660Z"
+}

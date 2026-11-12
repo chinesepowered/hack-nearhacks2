@@ -1,0 +1,18 @@
+{
+  "z-ai/glm-5.3-flash": [
+    {
+      "algo": "Ed25519",
+      "kind": "ProviderTee",
+      "key": "5a0210f2442c79355784f9de021985429561da5bacc3a4424b01ac52b7e0caff",
+      "label": "NEAR AI Cloud TEE signing key of z-ai/glm-5.3-flash (ed25519), from /v1/attestation/report on 2026-11-12",
+      "disabled": false
+    },
+    {
+      "algo": "Ecdsa",
+      "kind": "ProviderTee",
+      "key": "3b753b4406613c5e70ae640508632b600424fa0c",
+      "label": "NEAR AI Cloud TEE signing key of z-ai/glm-5.3-flash (ecdsa), from /v1/attestation/report on 2026-11-12",
+      "disabled": false
+    }
+  ]
+}

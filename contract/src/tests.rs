@@ -598,3 +598,30 @@ fn real_verdict_does_not_fit_a_different_joke() {
     at("mallory.testnet", T0 + 3, 0);
     c.judge(other, GLM.response.to_vec().into(), signature.into(), 0);
 }
+
+// ---------------------------------------------------------------- the colony council
+
+#[test]
+fn the_council_rotates_at_most_once_per_day() {
+    let mut c = deploy();
+    at("alice.testnet", T0, FISH);
+    c.feed();
+    at("anyone.testnet", T0 + 10, 0);
+    c.rotate_council().detach();
+    let again = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        at("anyone.testnet", T0 + 20, 0);
+        c.rotate_council().detach();
+    }));
+    assert!(again.is_err(), "a second rotation the same day must fail");
+    at("anyone.testnet", T0 + 1_000, 0);
+    c.rotate_council().detach();
+}
+
+#[test]
+#[should_panic(expected = "nobody has cared for a pup yet")]
+fn an_empty_leaderboard_seats_nobody() {
+    let mut c = deploy();
+    at("anyone.testnet", T0, 0);
+    c.rotate_council().detach();
+}
+

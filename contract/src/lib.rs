@@ -43,6 +43,8 @@ pub const ONE_ARF: u128 = 1_000_000_000_000_000_000;
 pub const GENESIS_SUPPLY: u128 = 1_000_000_000 * ONE_ARF;
 /// How many carers the leaderboard of one generation keeps.
 pub const TOP_N: usize = 10;
+/// How many recent happenings the contract remembers for the page.
+pub const RECENT_N: usize = 12;
 
 #[derive(BorshStorageKey)]
 #[near(serializers = [borsh])]
@@ -177,6 +179,20 @@ pub struct Carer {
     pub jokes_today: u32,
 }
 
+/// One line of the "what just happened" feed on the page.
+#[near(serializers = [borsh, json])]
+#[derive(Clone)]
+pub struct Activity {
+    pub at: u64,
+    /// "arrived", "fed", "laugh", "groan", "lullaby" or "left".
+    pub kind: String,
+    pub who: Option<AccountId>,
+    pub generation: u32,
+    /// ARF earned (fed, laugh) or burned (lullaby, left).
+    pub amount: U128,
+    pub score: u8,
+}
+
 #[near(serializers = [borsh, json])]
 #[derive(Clone, PartialEq, Debug)]
 pub enum JokeStatus {
@@ -274,7 +290,11 @@ pub struct Contract {
     guests: u32,
     guest_window_start: u64,
     guest_window_count: u32,
-    council_rotated_gen: u32,
+    /// The colony council as last seated by `rotate_council`, and the first day it may rotate again.
+    council: Vec<AccountId>,
+    council_next_day: u32,
+    /// The last few things that happened, newest first.
+    recent: Vec<Activity>,
 }
 
 fn now_secs() -> u64 {
@@ -332,7 +352,9 @@ impl Contract {
             guests: 0,
             guest_window_start: 0,
             guest_window_count: 0,
-            council_rotated_gen: 0,
+            council: Vec::new(),
+            council_next_day: 0,
+            recent: Vec::new(),
         }
     }
 
@@ -358,6 +380,14 @@ impl Contract {
     }
 
     // ------------------------------------------------------------------ the pup
+
+    fn note(&mut self, at: u64, kind: &str, who: Option<&AccountId>, amount: u128, score: u8) {
+        self.recent.insert(
+            0,
+            Activity { at, kind: kind.to_string(), who: who.cloned(), generation: self.pup.generation, amount: U128(amount), score },
+        );
+        self.recent.truncate(RECENT_N);
+    }
 
     fn pantry(&self) -> u128 {
         self.token.accounts.get(&env::current_account_id()).unwrap_or(0)
@@ -431,6 +461,7 @@ impl Contract {
         };
         event("swam_away", json!({"generation": record.generation, "age_secs": age, "burned": U128(burn)}));
         self.history.push(record);
+        self.note(left_at, "left", None, burn, 0);
         self.pup.present = false;
         self.pup.left_at = left_at;
     }
@@ -451,6 +482,7 @@ impl Contract {
             left_at: self.pup.left_at,
         };
         self.top.clear();
+        self.note(now, "arrived", None, 0, 0);
         event("arrived", json!({"generation": self.pup.generation}));
     }
 
@@ -535,6 +567,7 @@ impl Contract {
         c.earned = U128(c.earned.0 + reward);
         self.carers.insert(who.clone(), c);
 
+        self.note(now, "fed", Some(&who), reward, 0);
         self.treasury_accrued += price;
         if paid > price {
             Promise::new(who.clone()).transfer(NearToken::from_yoctonear(paid - price)).detach();
@@ -559,6 +592,7 @@ impl Contract {
         FtBurn { owner_id: &who, amount: U128(cost), memo: Some("a lullaby") }.emit();
         self.pup.nap_until = now + self.cfg.lullaby_secs as u64;
         self.pup.lullaby_ready_at = self.pup.nap_until + self.cfg.lullaby_cooldown_secs as u64;
+        self.note(now, "lullaby", Some(&who), cost, 0);
         event("lullaby", json!({"by": who, "nap_until": self.pup.nap_until}));
     }
 
@@ -682,6 +716,7 @@ impl Contract {
         self.jokes.replace(joke_id, joke.clone());
         self.pending_jokes -= 1;
 
+        self.note(now, if laughed { "laugh" } else { "groan" }, Some(&joke.author), reward, score);
         let fee = self.cfg.joke_fee.as_yoctonear();
         let tip = self.cfg.relayer_tip.as_yoctonear();
         self.escrow -= fee;
@@ -869,6 +904,11 @@ impl Contract {
             treasury_accrued: U128(self.treasury_accrued),
             guests: self.guests,
         }
+    }
+
+    /// The last few things that happened, newest first.
+    pub fn get_recent(&self) -> Vec<Activity> {
+        self.recent.clone()
     }
 
     /// Leaderboard of the pup on the ice now.

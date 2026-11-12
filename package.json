@@ -1,0 +1,27 @@
+{
+  "name": "arf",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Arf: one seal pup, raised by everyone. A NEAR testnet memecoin you can only earn by caring for, and amusing, a shared on-chain pet.",
+  "license": "MIT",
+  "scripts": {
+    "test": "cd contract && cargo test",
+    "build:contract": "cd contract && RUSTFLAGS='-C link-arg=-s --cfg near' cargo build --target wasm32-unknown-unknown --release",
+    "build:web": "node scripts/build-web.mjs",
+    "dev": "node scripts/dev-server.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "relayer": "node scripts/relayer.mjs",
+    "sim": "node scripts/sim.mjs",
+    "e2e": "node scripts/e2e.mjs"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^3.2.0",
+    "@noble/hashes": "^2.4.0"
+  },
+  "devDependencies": {
+    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
+    "esbuild": "^0.28.2"
+  }
+}
