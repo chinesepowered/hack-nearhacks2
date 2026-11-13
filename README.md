@@ -22,7 +22,9 @@ jokes, the swim-away burn and the council seating. Waiting time is compressed an
 
 | | |
 | --- | --- |
-| Play | https://chinesepowered.github.io/hack-nearhacks2/ (the same file is [`docs/index.html`](docs/index.html); or run it locally, see below) |
+| Play | https://chinesepowered.github.io/hack-nearhacks2/ or download [`docs/index.html`](docs/index.html) and open it from disk: the whole page is that one file and it needs no server |
+| Demo post | https://x.com/ChinesePowered/status/2121297160180490484 |
+| Tracks | `memecoins`, `privacy`, `social`, `games`, `open` ([where each one shows up](#where-each-tracks-theme-shows-up)) |
 | Contract (real time) | [`arf-pup.testnet`](https://testnet.nearblocks.io/address/arf-pup.testnet) |
 | Colony treasury | [`arf-pup-colony.sputnikv2.testnet`](https://testnet.nearblocks.io/address/arf-pup-colony.sputnikv2.testnet) (Sputnik DAO v3) |
 | Contract (fast-forward, for demos) | [`arf-demo.testnet`](https://testnet.nearblocks.io/address/arf-demo.testnet): a belly lasts 4 minutes instead of 12 hours |
@@ -72,7 +74,9 @@ HTML file that talks to NEAR RPC.
 
 ### In the browser
 
-1. Open the page. **See** the pup, how full his belly is, and how long until he swims away.
+1. Open the page (the link above, or `docs/index.html` straight from disk). **See** the pup, how
+   full his belly is, and how long until he swims away. If nobody fed him in time you **see** an
+   empty floe instead, when he left and how much of the pantry burned.
 2. Click **Give a fish** (or **Call a pup with a fish** if the floe is empty). **See** a guest
    account appear in the top right within a few seconds, the pup eat, and your ARF balance rise.
    No wallet is involved.
@@ -213,8 +217,10 @@ docs/            index.html (the built page), MECHANICS.md, SIMULATION.md, THREA
 
 ## Other submission by the same author
 
-**Capybazaar** is a separate, independent project submitted to the same hackathon by the same
-person. The two share no code.
+**[Capybazaar](https://github.com/chinesepowered/hack-nearhacks)** is a separate, independent
+project submitted to the same hackathon by the same person: a market-town game in which every
+stall is an NFT that is its own NEAR account, run by a capybara shopkeeper agent (tracks `games`,
+`nfts`, `swarms`, `agents`). Arf and Capybazaar share no code, contracts or deployments.
 
 ## License
 
